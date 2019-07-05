@@ -19,5 +19,5 @@ RUN apk add ca-certificates && update-ca-certificates
 # final stage
 FROM scratch
 COPY --from=builder /app/cf-dns-bot /app/
-COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs
+COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 ENTRYPOINT ["/app/cf-dns-bot"]
