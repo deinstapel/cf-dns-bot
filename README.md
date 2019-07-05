@@ -9,6 +9,8 @@ availability zones dynamically.
 - Spawn the container as deployment (only one replica supported at the moment)
 - Set CF_API_KEY and CF_API_EMAIL as env variables inside the container
 
+- take a look at [deploy.yaml](deploy.yaml) to get a full-featured deployment with RBAC.
+
 ## Usage
 
 To indicate cf-dns-bot that it should manage dns records for a node, add a label:

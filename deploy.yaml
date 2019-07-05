@@ -1,0 +1,69 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name:  cf-api-key
+  namespace: kube-system
+data:
+   CF_API_KEY: YOUR_API_KEY_IN_BASE64
+   CF_API_EMAIL: YOUR_API_EMAIL_IN_BASE64
+type: Opaque
+
+---
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name:  cf-dns-bot
+  namespace: kube-system
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cf-dns-bot
+rules:
+- apiGroups: [""]
+  resources: ["nodes"]
+  verbs: ["get", "list", "watch"]
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cf-dns-bot
+subjects:
+- kind: ServiceAccount
+  name: cf-dns-bot
+  namespace: kube-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cf-dns-bot
+
+---
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: cf-dns-bot
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      app: dns-mgr
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: dns-mgr
+    spec:
+      serviceAccountName: cf-dns-bot
+      automountServiceAccountToken: true
+      containers:
+      - name: cf-dns-bot
+        image: deinstapel/cf-dns-bot:v2
+        envFrom:
+        - secretRef:
+            name: cf-api-key
