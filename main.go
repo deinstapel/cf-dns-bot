@@ -20,6 +20,7 @@ import (
 	"k8s.io/client-go/rest"
 	cache "k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
+
 )
 
 const ManagedLabel = "domainmanager.deinstapel.de"
@@ -267,11 +268,11 @@ func main() {
 	informer := cache.NewSharedIndexInformer(&cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 			options.LabelSelector = labelSelector.String()
-			return clientSet.CoreV1().Nodes().List(options)
+			return clientSet.CoreV1().Nodes().List(context.Background(), options)
 		},
 		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 			options.LabelSelector = labelSelector.String()
-			return clientSet.CoreV1().Nodes().Watch(options)
+			return clientSet.CoreV1().Nodes().Watch(context.Background(),options)
 		},
 	}, &corev1.Node{}, 0, cache.Indexers{})
 	myHandler := &nodeInformer{
