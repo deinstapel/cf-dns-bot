@@ -11,12 +11,26 @@ import (
 	"github.com/sirupsen/logrus"
 	"net"
 	"os"
+	"strings"
 )
 
 type Route53DomainHandler struct {
 	route53Api *route53.Route53
 	hostedZoneCache map[string]*route53.HostedZone
 	logger *logrus.Entry
+}
+
+func unescapeRoute53URL(s string) string {
+
+	retS := s
+
+	if strings.HasSuffix(s, ".") {
+		retS = strings.TrimSuffix(s, ".")
+	}
+
+	return strings.ReplaceAll(retS, "\\052", "*")
+
+
 }
 
 func (domainHandler *Route53DomainHandler) GetHostedZoneForDomain(domainParts []string) (*route53.HostedZone, error){
@@ -68,8 +82,11 @@ func (domainHandler *Route53DomainHandler) GetExistingDNSRecordsForDomain(domain
 
 	for _, resourceRecord := range resourceRecords.ResourceRecordSets {
 
+		escapedDomain := unescapeRoute53URL(*resourceRecord.Name)
+		isSameDomain := escapedDomain == domainEntry.domain
+
 		// We only need A and AAAA records. We do not manage other records.
-		if *resourceRecord.Type != "A" && *resourceRecord.Type != "AAAA" {
+		if !isSameDomain || (*resourceRecord.Type != "A" && *resourceRecord.Type != "AAAA") {
 			continue
 		}
 

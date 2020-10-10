@@ -68,13 +68,13 @@ func main() {
 		)
 	}
 
-	// if (!cfKeyOk || !cfMailOk) && (!awsAccessKeyOk || !awsSecretKeyOk) {
+	if (!cfKeyOk || !cfMailOk) && (!awsAccessKeyOk || !awsSecretKeyOk) {
 		dummyDomainHandler := domainmanager.CreateDummyHandler()
 		domainHandlerList = append(
 			domainHandlerList,
 			domainmanager.CreateDomainMananger(dummyDomainHandler, logger),
 		)
-	// }
+	}
 
 	signalChan := make(chan os.Signal)
 	stopper, cancel := context.WithCancel(context.Background())
