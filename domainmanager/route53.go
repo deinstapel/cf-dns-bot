@@ -59,11 +59,11 @@ func (domainHandler *Route53DomainHandler) GetHostedZoneForDomain(domainParts []
 	return hostedZone, nil
 }
 
-func (domainHandler *Route53DomainHandler) EnsureRecord(nodeEntry *NodeEntry, domainEntry *DomainEntry, addr net.IP, recType string, records []*DNSRecord) {
-
+func (domainHandler *Route53DomainHandler) EnsureSingleRecord(nodeEntry *NodeEntry, domainEntry *DomainEntry, addr net.IP, recType string, records []*DNSRecord) {
+	panic("Not Implemeted")
 }
-func (domainHandler *Route53DomainHandler) EnsureDeleted(nodeEntry *NodeEntry, domainEntry *DomainEntry, addr net.IP, recType string, records []*DNSRecord) {
-
+func (domainHandler *Route53DomainHandler) DeleteSingleRecord(nodeEntry *NodeEntry, domainEntry *DomainEntry, addr net.IP, recType string, records []*DNSRecord) {
+	panic("Not Implemented")
 }
 func (domainHandler *Route53DomainHandler) GetExistingDNSRecordsForDomain(domainEntry *DomainEntry) ([]*DNSRecord, error) {
 
@@ -93,7 +93,7 @@ func (domainHandler *Route53DomainHandler) GetExistingDNSRecordsForDomain(domain
 		for _, resourceRecordEntry := range resourceRecord.ResourceRecords {
 
 			dnsRecords = append(dnsRecords, &DNSRecord{
-				ID:          uuid.New().String(),
+				ID:          uuid.New().String(), // Technically, we do not need this
 				recordType:  *resourceRecord.Type,
 				recordEntry: *resourceRecordEntry.Value,
 			})
@@ -106,6 +106,113 @@ func (domainHandler *Route53DomainHandler) CheckIfResponsible(domainParts []stri
 	_, err := domainHandler.GetHostedZoneForDomain(domainParts)
 	return err == nil
 }
+
+
+func (domainHandler *Route53DomainHandler) EnsureGroupedRecord(nodeEntry *NodeEntry, domainEntry *DomainEntry, addr []net.IP, recType string, records []*DNSRecord) {
+	logger := domainHandler.logger.WithField("node", nodeEntry.name).WithField("domain", domainEntry.domain).WithField("type", recType)
+	hostedZone, err := domainHandler.GetHostedZoneForDomain(domainEntry.domainParts);
+
+	// FIXME: Evaluate existing records to save some API calls.
+
+	logger.Info("EnsureGroupedRecord called")
+
+	if err != nil {
+		logger.Warn("Could not get HostedZone")
+		return
+	}
+
+	resourceRecords := make([]*route53.ResourceRecord, 0)
+
+	for _, ipAddr := range addr {
+		resourceRecords = append(
+			resourceRecords,
+			&route53.ResourceRecord{
+				Value: aws.String(ipAddr.String()),
+			},
+		)
+	}
+
+	batchRequest := &route53.ChangeResourceRecordSetsInput{
+		ChangeBatch: &route53.ChangeBatch{
+			Changes: []*route53.Change{
+				{
+					Action: aws.String("UPSERT"),
+					ResourceRecordSet: &route53.ResourceRecordSet{
+						ResourceRecords: resourceRecords,
+						Name: aws.String(domainEntry.domain),
+						Type: aws.String(recType),
+						TTL: aws.Int64(60),
+					},
+				},
+			},
+			Comment: aws.String("Managed by dns-bot"),
+		},
+		HostedZoneId: hostedZone.Id,
+	}
+
+	_, err = domainHandler.route53Api.ChangeResourceRecordSets(batchRequest)
+
+	if err != nil {
+		logger.WithError(err).Warn("Failed Routes Update")
+	} else {
+		logger.Info("Updated Routes")
+	}
+
+}
+func (domainHandler *Route53DomainHandler) DeleteGroupedRecord(nodeEntry *NodeEntry, domainEntry *DomainEntry, addr []net.IP, recType string, records []*DNSRecord) {
+	logger := domainHandler.logger.WithField("node", nodeEntry.name).WithField("domain", domainEntry.domain).WithField("type", recType)
+	hostedZone, err := domainHandler.GetHostedZoneForDomain(domainEntry.domainParts);
+
+	// FIXME: Evaluate existing records to save some API calls.
+
+	logger.Info("DeleteGroupedRecord called")
+
+	if err != nil {
+		logger.Warn("Could not get HostedZone")
+		return
+	}
+
+	resourceRecords := make([]*route53.ResourceRecord, 0)
+
+	for _, ipAddr := range addr {
+		resourceRecords = append(
+			resourceRecords,
+			&route53.ResourceRecord{
+				Value: aws.String(ipAddr.String()),
+			},
+		)
+	}
+
+	batchRequest := &route53.ChangeResourceRecordSetsInput{
+		ChangeBatch: &route53.ChangeBatch{
+			Changes: []*route53.Change{
+				{
+					Action: aws.String("DELETE"),
+					ResourceRecordSet: &route53.ResourceRecordSet{
+						ResourceRecords: resourceRecords,
+						Name: aws.String(domainEntry.domain),
+						Type: aws.String(recType),
+						TTL: aws.Int64(60),
+					},
+				},
+			},
+		},
+		HostedZoneId: hostedZone.Id,
+	}
+
+	_, err = domainHandler.route53Api.ChangeResourceRecordSets(batchRequest)
+
+	if err != nil {
+		logger.WithError(err).Warn("Failed Route Deletion")
+	} else {
+		logger.Info("Deleted Routes")
+	}
+}
+
+func (_ *Route53DomainHandler) GetAPIType() string{
+	return "grouped"
+}
+
 
 func (_ *Route53DomainHandler) GetName() string{
 	return "route53"

@@ -32,7 +32,7 @@ func (cDH *CloudflareDomainHandler) GetZoneIdFromDomain(domainEntry *DomainEntry
 	return cDH.getZoneIdFromZone(zone)
 }
 
-func (cDH *CloudflareDomainHandler) EnsureRecord(nodeEntry *NodeEntry, domainEntry *DomainEntry, addr net.IP, recType string, records []*DNSRecord) {
+func (cDH *CloudflareDomainHandler) EnsureSingleRecord(nodeEntry *NodeEntry, domainEntry *DomainEntry, addr net.IP, recType string, records []*DNSRecord) {
 	addrString := addr.String()
 	for _, rec := range records {
 		if rec.recordType == recType && rec.recordEntry == addrString {
@@ -60,7 +60,7 @@ func (cDH *CloudflareDomainHandler) EnsureRecord(nodeEntry *NodeEntry, domainEnt
 	}
 }
 
-func (cDH *CloudflareDomainHandler) EnsureDeleted(nodeEntry *NodeEntry, domainEntry *DomainEntry, addr net.IP, recType string, records []*DNSRecord) {
+func (cDH *CloudflareDomainHandler) DeleteSingleRecord(nodeEntry *NodeEntry, domainEntry *DomainEntry, addr net.IP, recType string, records []*DNSRecord) {
 	addrString := addr.String()
 	zoneId, err := cDH.GetZoneIdFromDomain(domainEntry)
 	if err != nil {
@@ -122,6 +122,18 @@ func (cDH *CloudflareDomainHandler) CheckIfResponsible(domainParts []string) boo
 func (_ *CloudflareDomainHandler) GetName() string{
 	return "cloudflare"
 }
+
+func (_ *CloudflareDomainHandler) EnsureGroupedRecord(nodeEntry *NodeEntry, domainEntry *DomainEntry, addr []net.IP, recType string, records []*DNSRecord) {
+	panic("Not Implemented")
+}
+func (_ *CloudflareDomainHandler) DeleteGroupedRecord(nodeEntry *NodeEntry, domainEntry *DomainEntry, addr []net.IP, recType string, records []*DNSRecord) {
+	panic("Not Implemented")
+}
+
+func (_ *CloudflareDomainHandler) GetAPIType() string{
+	return "single"
+}
+
 
 func CreateCloudflareDomainHandler(cfApiMail string, cfApiKey string) (*CloudflareDomainHandler, error) {
 	cfApi, err := cloudflare.New(cfApiKey, cfApiMail)

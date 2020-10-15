@@ -9,8 +9,6 @@ import (
 type DomainEntry struct {
 	domain    string
 	domainParts    []string
-	isPresent bool
-	responsibleDomainHandler *DomainManager
 }
 
 type DNSRecord struct {
@@ -20,11 +18,14 @@ type DNSRecord struct {
 }
 
 type DomainHandler interface {
-	EnsureRecord(nodeEntry *NodeEntry, domainEntry *DomainEntry, addr net.IP, recType string, records []*DNSRecord)
-	EnsureDeleted(nodeEntry *NodeEntry, domainEntry *DomainEntry, addr net.IP, recType string, records []*DNSRecord)
+	EnsureSingleRecord(nodeEntry *NodeEntry, domainEntry *DomainEntry, addr net.IP, recType string, records []*DNSRecord)
+	DeleteSingleRecord(nodeEntry *NodeEntry, domainEntry *DomainEntry, addr net.IP, recType string, records []*DNSRecord)
+	EnsureGroupedRecord(nodeEntry *NodeEntry, domainEntry *DomainEntry, addr []net.IP, recType string, records []*DNSRecord)
+	DeleteGroupedRecord(nodeEntry *NodeEntry, domainEntry *DomainEntry, addr []net.IP, recType string, records []*DNSRecord)
 	GetExistingDNSRecordsForDomain(domainEntry *DomainEntry) ([]*DNSRecord, error)
 	CheckIfResponsible(domainParts []string) bool
 	GetName() string
+	GetAPIType() string
 }
 
 type DomainManager struct {
@@ -32,7 +33,7 @@ type DomainManager struct {
 	logger *logrus.Entry
 }
 
-func (dM *DomainManager) EnsureDomain(nodeEntry *NodeEntry, domainEntry *DomainEntry, delete bool) error {
+func (dM *DomainManager) EnsureDomain(recordToCreate []string, recType string, domainEntry *DomainEntry, existingRecords []string) error {
 
 	nodeLogger := dM.logger.WithField("node", nodeEntry.name).WithField("domain", domainEntry.domain)
 	nodeLogger.Infof("Checking domain")
@@ -46,19 +47,39 @@ func (dM *DomainManager) EnsureDomain(nodeEntry *NodeEntry, domainEntry *DomainE
 		return err
 	}
 
-	if domainEntry.isPresent && !delete {
-		for _, addr := range nodeEntry.ipListv4 {
-			dM.domainHandler.EnsureRecord(nodeEntry, domainEntry, addr, "A", existingDNSRecords)
+	if dM.domainHandler.GetAPIType() == "grouped" {
+		groupedIPv4List := make([]net.IP, 0)
+		groupedIPv6List := make([]net.IP, 0)
+
+		for _, nodeListEntry := range nodeList {
+			groupedIPv4List = append(groupedIPv4List, nodeListEntry.ipListv4...)
+			groupedIPv6List = append(groupedIPv6List, nodeListEntry.ipListv6...)
 		}
-		for _, addr := range nodeEntry.ipListv6 {
-			dM.domainHandler.EnsureRecord(nodeEntry, domainEntry, addr, "AAAA", existingDNSRecords)
+
+		// Deleting last node of domain
+		if delete && len(nodeList) == 1 && nodeList[0].name == nodeEntry.name {
+			dM.domainHandler.DeleteGroupedRecord(nodeEntry, domainEntry, nodeEntry.ipListv4, "A", existingDNSRecords)
+			dM.domainHandler.DeleteGroupedRecord(nodeEntry, domainEntry, nodeEntry.ipListv6, "AAAA", existingDNSRecords)
+		} else {
+			// Updating existing record
+			dM.domainHandler.EnsureGroupedRecord(nodeEntry, domainEntry, groupedIPv4List, "A", existingDNSRecords)
+			dM.domainHandler.EnsureGroupedRecord(nodeEntry, domainEntry, groupedIPv6List, "AAAA", existingDNSRecords)
 		}
 	} else {
-		for _, addr := range nodeEntry.ipListv4 {
-			dM.domainHandler.EnsureDeleted(nodeEntry, domainEntry, addr, "A", existingDNSRecords)
-		}
-		for _, addr := range nodeEntry.ipListv6 {
-			dM.domainHandler.EnsureDeleted(nodeEntry, domainEntry, addr, "AAAA", existingDNSRecords)
+		if domainEntry.isPresent && !delete {
+			for _, addr := range nodeEntry.ipListv4 {
+				dM.domainHandler.EnsureSingleRecord(nodeEntry, domainEntry, addr, "A", existingDNSRecords)
+			}
+			for _, addr := range nodeEntry.ipListv6 {
+				dM.domainHandler.EnsureSingleRecord(nodeEntry, domainEntry, addr, "AAAA", existingDNSRecords)
+			}
+		} else {
+			for _, addr := range nodeEntry.ipListv4 {
+				dM.domainHandler.DeleteSingleRecord(nodeEntry, domainEntry, addr, "A", existingDNSRecords)
+			}
+			for _, addr := range nodeEntry.ipListv6 {
+				dM.domainHandler.DeleteSingleRecord(nodeEntry, domainEntry, addr, "AAAA", existingDNSRecords)
+			}
 		}
 	}
 

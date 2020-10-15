@@ -20,7 +20,7 @@ func (dHandler *DummyDomainHandler) GetDNSRecordsForDomain(domain string) mapset
 	return dHandler.dnsRecords[domain]
 }
 
-func (dHandler *DummyDomainHandler) EnsureRecord(nodeEntry *NodeEntry, domainEntry *DomainEntry, addr net.IP, recType string, _ []*DNSRecord){
+func (dHandler *DummyDomainHandler) EnsureSingleRecord(nodeEntry *NodeEntry, domainEntry *DomainEntry, addr net.IP, recType string, _ []*DNSRecord){
 	fmt.Fprintf(os.Stderr, "[%s] Ensure DNS Record addr=%v, type=%v, domain=%v\n", nodeEntry.name, addr.String(), recType, domainEntry.domain)
 
 	domainDNSRecords := dHandler.GetDNSRecordsForDomain(domainEntry.domain)
@@ -43,7 +43,7 @@ func (dHandler *DummyDomainHandler) EnsureRecord(nodeEntry *NodeEntry, domainEnt
 	fmt.Fprintf(os.Stderr, "[%s] Created DNS Record %s -> %s\n", nodeEntry.name, domainEntry.domain, addr.String())
 
 }
-func (dHandler *DummyDomainHandler) EnsureDeleted(nodeEntry *NodeEntry, domainEntry *DomainEntry, addr net.IP, recType string, _ []*DNSRecord){
+func (dHandler *DummyDomainHandler) DeleteSingleRecord(nodeEntry *NodeEntry, domainEntry *DomainEntry, addr net.IP, recType string, _ []*DNSRecord){
 	domainDNSRecords := dHandler.GetDNSRecordsForDomain(domainEntry.domain)
 	for _, recRaw := range domainDNSRecords.ToSlice() {
 		rec := recRaw.(*DNSRecord)
@@ -70,8 +70,20 @@ func (dHandler *DummyDomainHandler) CheckIfResponsible(domainParts []string) boo
 	fmt.Fprintf(os.Stderr, "CheckIfResponsible for %v\n", domainParts)
 	return true
 }
-func (dHandler *DummyDomainHandler) GetName() string{
+
+func (_ *DummyDomainHandler) EnsureGroupedRecord(nodeEntry *NodeEntry, domainEntry *DomainEntry, addr []net.IP, recType string, records []*DNSRecord) {
+	panic("Not Implemented")
+}
+func (_ *DummyDomainHandler) DeleteGroupedRecord(nodeEntry *NodeEntry, domainEntry *DomainEntry, addr []net.IP, recType string, records []*DNSRecord) {
+	panic("Not Implemented")
+}
+
+func (_ *DummyDomainHandler) GetName() string{
 	return "dummy"
+}
+
+func (_ *DummyDomainHandler) GetAPIType() string{
+	return "single"
 }
 
 func CreateDummyHandler() *DummyDomainHandler {
